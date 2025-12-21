@@ -13,8 +13,8 @@ export default function AdminOrders() {
   const token = localStorage.getItem("token");
 
   const statusMap = {
-    Pending: "🟡 Ожидает обработки",
-    Paid: "💰 Оплачен",
+    Pending: "⏳ Ожидает обработки",
+    Paid: "💳 Оплачен",
     Shipped: "📦 Отправлен",
     Delivered: "✅ Доставлен",
     Cancelled: "❌ Отменён",
@@ -229,53 +229,52 @@ export default function AdminOrders() {
                 </div>
               </div>
 
-              {/* === Плавное раскрытие деталей === */}
-              {selectedOrder?.OrderID === order.OrderID && (
-                <div
-                  className={`bg-gray-50 px-6 py-4 border-t border-gray-100 transition-all duration-500 ease-in-out ${
-                    selectedOrder.closing
-                      ? "max-h-0 opacity-0"
-                      : "max-h-[1000px] opacity-100"
-                  } overflow-hidden`}
-                >
-                  <p className="text-sm text-gray-700 mb-2">
-                    <strong>Адрес:</strong>{" "}
-                    {selectedOrder.City}, {selectedOrder.Street},{" "}
-                    {selectedOrder.House}
-                    {selectedOrder.PostalCode && `, ${selectedOrder.PostalCode}`}
-                  </p>
+           {/* === Плавное раскрытие деталей === */}
+{selectedOrder?.OrderID === order.OrderID && (
+  <div
+    className={`bg-gray-50 px-6 py-4 border-t border-gray-100 transition-all duration-500 ease-in-out ${
+      selectedOrder.closing ? "max-h-0 opacity-0" : "max-h-[1000px] opacity-100"
+    } overflow-hidden`}
+  >
+<p className="text-sm text-gray-700 mb-2">
+  <strong>Адрес:</strong> {selectedOrder.City}, {selectedOrder.Street}, {selectedOrder.House}
+  {selectedOrder.Apartment && `, Квартира: ${selectedOrder.Apartment}`}
+  {selectedOrder.PostalCode && `, ${selectedOrder.PostalCode}`}
+</p>
 
-                  <h4 className="font-semibold mb-2">🛍️ Товары:</h4>
-                  <div className="grid gap-2">
-                    {selectedOrder.items?.map((item) => (
-                      <div
-                        key={item.ProductID}
-                        className="flex items-center gap-3 bg-white rounded-lg p-2 border border-gray-200 hover:shadow-sm transition-all"
-                      >
-                        <img
-                          src={
-                            item.MainImageURL
-                              ? `http://localhost:5000${item.MainImageURL}`
-                              : "/no-image.png"
-                          }
-                          alt={item.Name}
-                          className="w-14 h-14 rounded object-cover border"
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium">{item.Name}</p>
-                          <p className="text-sm text-gray-600">
-                            {item.Quantity} × {item.Price} BYN
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
 
-                  <div className="text-right mt-4 font-semibold text-blue-700 text-lg">
-                    Итого: {selectedOrder.TotalAmount} BYN
-                  </div>
-                </div>
-              )}
+    <h4 className="font-semibold mb-2">🛍️ Товары:</h4>
+    <div className="grid gap-2">
+      {selectedOrder.items?.map((item) => (
+        <div
+          key={item.ProductID}
+          className="flex items-center gap-3 bg-white rounded-lg p-2 border border-gray-200 hover:shadow-sm transition-all"
+        >
+          <img
+            src={
+              item.MainImageURL
+                ? `http://localhost:5000${item.MainImageURL}`
+                : "/no-image.png"
+            }
+            alt={item.Name}
+            className="w-14 h-14 rounded object-cover border"
+          />
+          <div className="flex-1">
+            <p className="font-medium">{item.Name}</p>
+            <p className="text-sm text-gray-600">
+              {item.Quantity} × {item.Price} BYN
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div className="text-right mt-4 font-semibold text-blue-700 text-lg">
+      Итого: {selectedOrder.TotalAmount} BYN
+    </div>
+  </div>
+)}
+
             </div>
           ))}
         </div>

@@ -1,5 +1,7 @@
 const { poolPromise, sql } = require("../config/db");
 
+/*
+// ====== СТАРЫЙ ВАРИАНТ (оставлен закомментированным) ======
 const createOrder = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -87,6 +89,46 @@ const createOrder = async (req, res) => {
     res.status(500).json({
       message: "Ошибка при оформлении заказа",
       error: err.message
+    });
+  }
+};
+*/
+
+// ====== НОВЫЙ ВАРИАНТ (через процедуру dbo.sp_CreateOrderFromCart) ======
+const createOrder = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { address } = req.body;
+
+    if (!address?.city || !address?.street || !address?.house) {
+      return res.status(400).json({ message: "Не указан полный адрес доставки" });
+    }
+
+    const pool = await poolPromise;
+
+    const r = await pool.request()
+      .input("UserID", sql.Int, userId)
+      .input("City", sql.NVarChar(100), address.city)
+      .input("Street", sql.NVarChar(200), address.street)
+      .input("House", sql.NVarChar(50), address.house)
+      .input("Apartment", sql.NVarChar(50), address.apartment || null)
+      .input("PostalCode", sql.NVarChar(20), address.postalCode || null)
+      .output("OrderID", sql.Int)
+      .output("TotalAmount", sql.Decimal(10, 2))
+      .execute("dbo.sp_CreateOrderFromCart");
+
+    return res.json({
+      message: "Заказ успешно оформлен",
+      orderId: r.output.OrderID,
+      totalAmount: r.output.TotalAmount,
+    });
+  } catch (err) {
+    console.error("Checkout error:", err);
+
+    // логические ошибки из процедуры/триггера (корзина пуста / недостаточно товара)
+    return res.status(400).json({
+      message: "Ошибка при оформлении заказа",
+      error: err.message,
     });
   }
 };

@@ -4,6 +4,7 @@ import AdminProducts from "../components/AdminProducts";
 import AdminCategories from "../components/AdminCategories";
 import AdminOrders from "../components/AdminOrders";
 import AdminUsers from "../components/AdminUsers";
+import AdminReports from "../components/AdminReports"; // ✅
 
 export default function AdminPanel() {
   return (
@@ -16,6 +17,7 @@ export default function AdminPanel() {
             <Route path="/categories" element={<AdminCategories />} />
             <Route path="/orders" element={<AdminOrders />} />
             <Route path="/users" element={<AdminUsers />} />
+            <Route path="/reports" element={<AdminReports />} /> {/* ✅ */}
           </Routes>
         </div>
       </main>

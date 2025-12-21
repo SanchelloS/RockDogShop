@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Plus, Edit2, Trash2, RefreshCw } from "lucide-react";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState([]);
@@ -12,11 +14,12 @@ export default function AdminCategories() {
 
   useEffect(() => {
     fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchCategories() {
     try {
-      const res = await axios.get("http://localhost:5000/api/categories");
+      const res = await axios.get(`${API}/api/categories`);
       setCategories(res.data);
     } catch {
       showMessage("Ошибка при получении категорий", "error");
@@ -28,14 +31,14 @@ export default function AdminCategories() {
     try {
       if (editingCategory) {
         await axios.put(
-          `http://localhost:5000/api/categories/${editingCategory.CategoryID}`,
+          `${API}/api/categories/${editingCategory.CategoryID}`,
           { name },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         showMessage("✅ Категория обновлена", "success");
       } else {
         await axios.post(
-          "http://localhost:5000/api/categories",
+          `${API}/api/categories`,
           { name },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -45,7 +48,7 @@ export default function AdminCategories() {
       setName("");
       setEditingCategory(null);
       fetchCategories();
-    } catch (err) {
+    } catch {
       showMessage("Ошибка при сохранении категории", "error");
     }
   }
@@ -53,13 +56,14 @@ export default function AdminCategories() {
   function handleEdit(category) {
     setEditingCategory(category);
     setName(category.Name);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handleDelete(id) {
     if (!window.confirm("Удалить эту категорию?")) return;
 
     try {
-      await axios.delete(`http://localhost:5000/api/categories/${id}`, {
+      await axios.delete(`${API}/api/categories/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       showMessage("🗑 Категория удалена", "success");
@@ -83,9 +87,16 @@ export default function AdminCategories() {
     setTimeout(() => setMessage({ text: "", type: "" }), 2500);
   }
 
-  const filtered = categories.filter((c) =>
-    c.Name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const s = search.toLowerCase();
+    return categories.filter((c) => c.Name.toLowerCase().includes(s));
+  }, [categories, search]);
+
+  const totals = useMemo(() => {
+    const totalCats = filtered.length;
+    const totalProducts = filtered.reduce((sum, c) => sum + Number(c.ProductsCount || 0), 0);
+    return { totalCats, totalProducts };
+  }, [filtered]);
 
   return (
     <div className="animate-fade-in">
@@ -120,10 +131,12 @@ export default function AdminCategories() {
           className="border border-gray-300 rounded-lg p-2 flex-1 focus:ring-2 focus:ring-blue-200 outline-none"
           required
         />
+
         <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all">
           <Plus size={16} />
           {editingCategory ? "Сохранить" : "Добавить"}
         </button>
+
         {editingCategory && (
           <button
             type="button"
@@ -133,6 +146,7 @@ export default function AdminCategories() {
             Отмена
           </button>
         )}
+
         <button
           type="button"
           onClick={fetchCategories}
@@ -142,8 +156,8 @@ export default function AdminCategories() {
         </button>
       </form>
 
-      {/* Поиск */}
-      <div className="flex items-center mb-4">
+      {/* Поиск + итоги */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-4">
         <input
           type="text"
           placeholder="🔍 Поиск категории..."
@@ -151,43 +165,80 @@ export default function AdminCategories() {
           onChange={(e) => setSearch(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 w-full sm:w-1/2 focus:ring-2 focus:ring-blue-200 outline-none"
         />
+
+        <div className="text-sm text-gray-600 bg-white border border-gray-100 rounded-xl px-4 py-2 shadow-sm">
+          <span className="font-semibold">Категорий:</span> {totals.totalCats}{" "}
+          <span className="mx-2 text-gray-300">|</span>
+          <span className="font-semibold">Товаров в них:</span> {totals.totalProducts}
+        </div>
       </div>
 
-      {/* Список категорий */}
+      {/* Таблица */}
       {filtered.length === 0 ? (
         <p className="text-gray-500 text-center">Категорий нет</p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {filtered.map((c, i) => (
-            <li
-              key={c.CategoryID}
-              className="bg-white border border-gray-100 p-4 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-fade-in"
-              style={{ animationDelay: `${i * 60}ms` }}
-            >
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-gray-800 truncate">
-                  {c.Name}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(c)}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-white p-2 rounded-full transition-all"
-                    title="Редактировать"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(c.CategoryID)}
-                    className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full transition-all"
-                    title="Удалить"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-auto border border-gray-100 rounded-xl bg-white shadow-sm animate-fade-in">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th className="text-left p-3 border-b">ID</th>
+                <th className="text-left p-3 border-b">Название</th>
+                <th className="text-left p-3 border-b">Товаров</th>
+                <th className="text-right p-3 border-b">Действия</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filtered.map((c) => (
+                <tr
+                  key={c.CategoryID}
+                  className="hover:bg-gray-50 transition-colors"
+                >
+                  <td className="p-3 border-b text-gray-700">{c.CategoryID}</td>
+
+                  <td className="p-3 border-b">
+                    <div className="font-semibold text-gray-800">{c.Name}</div>
+                  </td>
+
+                  <td className="p-3 border-b">
+                    <span
+                      className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-semibold border ${
+                        Number(c.ProductsCount || 0) > 0
+                          ? "bg-blue-50 text-blue-700 border-blue-100"
+                          : "bg-gray-50 text-gray-600 border-gray-200"
+                      }`}
+                      title="Количество товаров в категории"
+                    >
+                      {Number(c.ProductsCount || 0)}
+                    </span>
+                  </td>
+
+                  <td className="p-3 border-b">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(c)}
+                        className="px-3 py-1.5 rounded-lg bg-yellow-400 text-white hover:bg-yellow-500 transition"
+                        title="Редактировать"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(c.CategoryID)}
+                        className="px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+                        title="Удалить"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

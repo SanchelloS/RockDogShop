@@ -18,11 +18,10 @@ export default function ProductCard({ product }) {
   return (
     <Link
       to={`/product/${product.ProductID}`}
-      className="block group relative w-full max-w-xs"
+      className="block group relative w-full max-w-sm h-full"
+      title={product.Name} // чтобы полное название показывалось при наведении
     >
-      <div
-        className="bg-white rounded-2xl overflow-hidden shadow-md transition-transform duration-300 ease-out group-hover:shadow-xl group-hover:scale-[1.03]"
-      >
+      <div className="bg-white rounded-2xl overflow-hidden shadow-md transition-transform duration-300 ease-out group-hover:shadow-xl group-hover:scale-[1.03] h-full flex flex-col">
         {/* Изображение */}
         <div className="relative h-60 bg-gray-100 overflow-hidden flex items-center justify-center">
           {product.MainImageURL ? (
@@ -35,7 +34,6 @@ export default function ProductCard({ product }) {
             <div className="text-gray-400">Нет фото</div>
           )}
 
-          {/* Кнопка добавления в корзину */}
           <button
             onClick={handleAdd}
             className={`absolute bottom-3 right-3 p-3 rounded-full shadow-lg transition-all duration-300 ${
@@ -50,20 +48,23 @@ export default function ProductCard({ product }) {
         </div>
 
         {/* Текстовый блок */}
-        <div className="p-4">
-          <h2 className="text-lg font-semibold text-gray-800 mb-1 line-clamp-1">
+        <div className="p-4 flex-1 flex flex-col">
+          {/* 2 строки под название (высота фиксирована) */}
+          <h2 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2 min-h-[3.5rem]">
             {product.Name}
           </h2>
-         {/* <p className="text-gray-500 text-sm line-clamp-2 mb-2">
+
+          {/* Если вернёшь описание — тоже фиксируй 2 строки */}
+          {/* <p className="text-gray-500 text-sm line-clamp-2 min-h-[2.5rem] mb-3">
             {product.Description || "Описание отсутствует"}
-          </p>*/}
-          <p className="text-xl font-bold text-blue-600">
+          </p> */}
+
+          <p className="text-xl font-bold text-blue-600 mt-auto">
             {product.Price} BYN
           </p>
         </div>
       </div>
 
-      {/* Анимационное уведомление */}
       {added && (
         <div className="absolute bottom-24 right-3 bg-green-500 text-white text-sm font-medium py-1.5 px-3 rounded-lg shadow-md animate-fade-in">
           ✅ Добавлено в корзину!
@@ -72,3 +73,4 @@ export default function ProductCard({ product }) {
     </Link>
   );
 }
+

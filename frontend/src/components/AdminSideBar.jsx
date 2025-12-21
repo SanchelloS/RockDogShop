@@ -1,5 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { Package, List, ShoppingCart, Users } from "lucide-react";
+import {
+  Package,
+  List,
+  ShoppingCart,
+  Users,
+  BarChart3,
+} from "lucide-react";
+
 
 export default function AdminSidebar() {
   const location = useLocation();
@@ -9,6 +16,7 @@ export default function AdminSidebar() {
     { to: "/admin/categories", label: "Категории", icon: <List size={18} /> },
     { to: "/admin/orders", label: "Заказы", icon: <ShoppingCart size={18} /> },
     { to: "/admin/users", label: "Пользователи", icon: <Users size={18} /> },
+    { to: "/admin/reports", label: "Отчёты", icon: <BarChart3 size={18} /> },
   ];
 
   return (

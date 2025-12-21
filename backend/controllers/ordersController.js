@@ -120,7 +120,7 @@ const getAllOrders = async (req, res) => {
     const pool = await poolPromise;
     const result = await pool.request().query(`
       SELECT o.OrderID, o.OrderDate, o.TotalAmount, o.Status,
-             u.Login AS UserLogin, d.City, d.Street, d.House, d.PostalCode
+             u.Login AS UserLogin, d.City, d.Street, d.House, d.PostalCode, d.Apartment
       FROM Orders o
       JOIN Users u ON o.UserID = u.UserID
       JOIN DeliveryAddresses d ON o.AddressID = d.AddressID
@@ -134,6 +134,7 @@ const getAllOrders = async (req, res) => {
   }
 };
 
+
 // 👁 Конкретный заказ
 const getOrderById = async (req, res) => {
   try {
@@ -144,7 +145,7 @@ const getOrderById = async (req, res) => {
       .input('orderId', orderId)
       .query(`
         SELECT o.OrderID, o.OrderDate, o.TotalAmount, o.Status,
-               u.Login AS UserLogin, d.City, d.Street, d.House, d.PostalCode
+               u.Login AS UserLogin, d.City, d.Street, d.House, d.PostalCode, d.Apartment
         FROM Orders o
         JOIN Users u ON o.UserID = u.UserID
         JOIN DeliveryAddresses d ON o.AddressID = d.AddressID
@@ -163,12 +164,17 @@ const getOrderById = async (req, res) => {
         WHERE oi.OrderID = @orderId
       `);
 
-    res.json({ ...order.recordset[0], items: items.recordset });
+    // Включаем информацию о квартире в ответ
+    res.json({ 
+      ...order.recordset[0], 
+      items: items.recordset 
+    });
   } catch (err) {
     console.error('getOrderById error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
+
 
 // 🔄 Обновить статус
 const updateOrderStatus = async (req, res) => {

@@ -1,8 +1,18 @@
 import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { Search, Filter, SortAsc, SortDesc, RefreshCw, X } from "lucide-react";
+import {
+  Search,
+  Filter,
+  SortAsc,
+  SortDesc,
+  RefreshCw,
+  X,
+  LayoutGrid,
+  List as ListIcon,
+} from "lucide-react";
 
 const API_URL = "http://localhost:5000/api";
+const HOST = "http://localhost:5000";
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -10,12 +20,15 @@ export default function AdminProducts() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [extraPreviews, setExtraPreviews] = useState([]);
-  const [existingImages, setExistingImages] = useState([]); // 🔹 изображения из БД
+  const [existingImages, setExistingImages] = useState([]);
   const [extraImages, setExtraImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("newest");
   const [categoryFilter, setCategoryFilter] = useState("Все");
   const [search, setSearch] = useState("");
+
+  // ✅ новый режим отображения
+  const [viewMode, setViewMode] = useState("cards"); // cards | list
 
   const [formData, setFormData] = useState({
     name: "",
@@ -62,11 +75,9 @@ export default function AdminProducts() {
       let productId;
 
       if (editingProduct) {
-        await axios.put(
-          `${API_URL}/products/${editingProduct.ProductID}`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await axios.put(`${API_URL}/products/${editingProduct.ProductID}`, formData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         productId = editingProduct.ProductID;
       } else {
         const res = await axios.post(`${API_URL}/products`, formData, {
@@ -134,15 +145,13 @@ export default function AdminProducts() {
       categoryId: product.CategoryID || "",
       image: null,
     });
-    setImagePreview(
-      product.MainImageURL ? `http://localhost:5000${product.MainImageURL}` : null
-    );
+    setImagePreview(product.MainImageURL ? `${HOST}${product.MainImageURL}` : null);
 
     // 🔹 Подгрузим доп. изображения
     try {
       const res = await axios.get(`${API_URL}/products/${product.ProductID}`);
       if (res.data.Images) {
-        setExistingImages(res.data.Images.map((img) => `http://localhost:5000${img}`));
+        setExistingImages(res.data.Images.map((img) => `${HOST}${img}`));
       }
     } catch (err) {
       console.error("Ошибка при загрузке доп. изображений:", err);
@@ -204,9 +213,7 @@ export default function AdminProducts() {
     if (search.trim()) {
       const s = search.toLowerCase();
       result = result.filter(
-        (p) =>
-          p.Name.toLowerCase().includes(s) ||
-          p.Description?.toLowerCase().includes(s)
+        (p) => p.Name.toLowerCase().includes(s) || p.Description?.toLowerCase().includes(s)
       );
     }
 
@@ -227,7 +234,6 @@ export default function AdminProducts() {
     return result;
   }, [products, sortBy, categoryFilter, search]);
 
-  // === UI ===
   return (
     <div className="animate-fade-in">
       <h1 className="text-3xl font-bold mb-6 text-gray-800 flex items-center gap-2">
@@ -275,12 +281,43 @@ export default function AdminProducts() {
           </select>
         </div>
 
-        <button
-          onClick={fetchProducts}
-          className="ml-auto flex items-center gap-2 bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition-all"
-        >
-          <RefreshCw size={16} /> Обновить
-        </button>
+        {/* ✅ переключатель режима */}
+        <div className="flex items-center gap-2 ml-auto">
+          <button
+            type="button"
+            onClick={() => setViewMode("cards")}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
+              viewMode === "cards"
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+            }`}
+            title="Карточки"
+          >
+            <LayoutGrid size={16} />
+            Карточки
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
+              viewMode === "list"
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+            }`}
+            title="Список"
+          >
+            <ListIcon size={16} />
+            Список
+          </button>
+
+          <button
+            onClick={fetchProducts}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition-all"
+          >
+            <RefreshCw size={16} /> Обновить
+          </button>
+        </div>
       </div>
 
       {/* === Форма === */}
@@ -308,17 +345,13 @@ export default function AdminProducts() {
           type="number"
           placeholder="Количество"
           value={formData.quantityInStock}
-          onChange={(e) =>
-            setFormData({ ...formData, quantityInStock: e.target.value })
-          }
+          onChange={(e) => setFormData({ ...formData, quantityInStock: e.target.value })}
           className="border p-2 rounded focus:ring-2 focus:ring-blue-200 outline-none"
           required
         />
         <select
           value={formData.categoryId}
-          onChange={(e) =>
-            setFormData({ ...formData, categoryId: e.target.value })
-          }
+          onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
           className="border p-2 rounded focus:ring-2 focus:ring-blue-200 outline-none"
           required
         >
@@ -333,21 +366,14 @@ export default function AdminProducts() {
         <textarea
           placeholder="Описание"
           value={formData.description}
-          onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value })
-          }
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           className="border p-2 rounded col-span-2 focus:ring-2 focus:ring-blue-200 outline-none"
         />
 
         {/* Главное изображение */}
         <div className="col-span-2">
           <label className="block mb-1 text-gray-600">Главное изображение:</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="border p-2 rounded w-full"
-          />
+          <input type="file" accept="image/*" onChange={handleImageChange} className="border p-2 rounded w-full" />
           {imagePreview && (
             <img
               src={imagePreview}
@@ -360,24 +386,15 @@ export default function AdminProducts() {
         {/* Существующие изображения */}
         {existingImages.length > 0 && (
           <div className="col-span-2 mt-3">
-            <label className="block mb-2 text-gray-600">
-              Загруженные изображения:
-            </label>
+            <label className="block mb-2 text-gray-600">Загруженные изображения:</label>
             <div className="flex gap-3 flex-wrap">
               {existingImages.map((src, i) => (
-                <div
-                  key={i}
-                  className="relative w-20 h-20 border rounded-lg overflow-hidden group"
-                >
-                  <img
-                    src={src}
-                    alt={`image-${i}`}
-                    className="object-cover w-full h-full"
-                  />
+                <div key={i} className="relative w-20 h-20 border rounded-lg overflow-hidden group">
+                  <img src={src} alt={`image-${i}`} className="object-cover w-full h-full" />
                   <button
                     type="button"
                     onClick={() =>
-                      handleDeleteImage(editingProduct.ProductID, src.replace("http://localhost:5000", ""))
+                      handleDeleteImage(editingProduct.ProductID, src.replace(HOST, ""))
                     }
                     className="absolute top-0 right-0 bg-red-600 text-white rounded-bl-md opacity-0 group-hover:opacity-100 transition-all"
                   >
@@ -391,9 +408,7 @@ export default function AdminProducts() {
 
         {/* Новые дополнительные изображения */}
         <div className="col-span-2 mt-2">
-          <label className="block mb-1 text-gray-600">
-            Добавить дополнительные изображения (до 3):
-          </label>
+          <label className="block mb-1 text-gray-600">Добавить дополнительные изображения (до 3):</label>
           <input
             type="file"
             accept="image/*"
@@ -437,7 +452,76 @@ export default function AdminProducts() {
         <div className="text-center text-gray-500 animate-pulse">Загрузка...</div>
       ) : filteredProducts.length === 0 ? (
         <p className="text-center text-gray-500">Нет товаров</p>
+      ) : viewMode === "list" ? (
+        // ✅ минималистичный список
+        <div className="overflow-auto border border-gray-100 rounded-xl bg-white shadow-sm animate-fade-in">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th className="text-left p-3 border-b">ID</th>
+                <th className="text-left p-3 border-b">Фото</th>
+                <th className="text-left p-3 border-b">Название</th>
+                <th className="text-left p-3 border-b">Категория</th>
+                <th className="text-left p-3 border-b">Цена</th>
+                <th className="text-left p-3 border-b">Остаток</th>
+                <th className="text-right p-3 border-b">Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProducts.map((p) => (
+                <tr key={p.ProductID} className="hover:bg-gray-50 transition-colors">
+                  <td className="p-3 border-b text-gray-700">{p.ProductID}</td>
+
+                  <td className="p-3 border-b">
+                    <img
+                      src={p.MainImageURL ? `${HOST}${p.MainImageURL}` : "/no-image.png"}
+                      alt={p.Name}
+                      className="w-10 h-10 rounded-lg object-cover border"
+                    />
+                  </td>
+
+                  <td className="p-3 border-b">
+                    <div className="font-semibold text-gray-800">{p.Name}</div>
+                    <div className="text-xs text-gray-500 line-clamp-1">
+                      {p.Description || "Нет описания"}
+                    </div>
+                  </td>
+
+                  <td className="p-3 border-b text-gray-600">
+                    {p.CategoryName || "Без категории"}
+                  </td>
+
+                  <td className="p-3 border-b font-semibold text-blue-600">
+                    {Number(p.Price).toLocaleString()} BYN
+                  </td>
+
+                  <td className="p-3 border-b text-gray-700">{p.QuantityInStock}</td>
+
+                  <td className="p-3 border-b">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => handleEdit(p)}
+                        className="px-3 py-1.5 rounded-lg bg-yellow-400 text-white hover:bg-yellow-500 transition"
+                        title="Редактировать"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p.ProductID)}
+                        className="px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+                        title="Удалить"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
+        // ✅ карточки (как было)
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {filteredProducts.map((p, i) => (
             <div
@@ -447,11 +531,7 @@ export default function AdminProducts() {
             >
               <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
                 <img
-                  src={
-                    p.MainImageURL
-                      ? `http://localhost:5000${p.MainImageURL}`
-                      : "/no-image.png"
-                  }
+                  src={p.MainImageURL ? `${HOST}${p.MainImageURL}` : "/no-image.png"}
                   alt={p.Name}
                   className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-105"
                 />
@@ -459,24 +539,16 @@ export default function AdminProducts() {
 
               <div className="p-3 flex flex-col justify-between min-h-[130px]">
                 <div>
-                  <h3 className="font-semibold text-base text-gray-800 truncate">
-                    {p.Name}
-                  </h3>
-                  <p className="text-gray-500 text-xs italic">
-                    {p.CategoryName || "Без категории"}
-                  </p>
+                  <h3 className="font-semibold text-base text-gray-800 truncate">{p.Name}</h3>
+                  <p className="text-gray-500 text-xs italic">{p.CategoryName || "Без категории"}</p>
                   <p className="text-gray-600 text-xs mt-1 line-clamp-2">
                     {p.Description || "Нет описания"}
                   </p>
                 </div>
 
                 <div className="mt-2">
-                  <p className="font-bold text-blue-600 text-sm">
-                    {p.Price.toLocaleString()} BYN
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    В наличии: {p.QuantityInStock}
-                  </p>
+                  <p className="font-bold text-blue-600 text-sm">{Number(p.Price).toLocaleString()} BYN</p>
+                  <p className="text-xs text-gray-500">В наличии: {p.QuantityInStock}</p>
 
                   <div className="mt-3 flex gap-2">
                     <button

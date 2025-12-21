@@ -179,20 +179,21 @@ export default function Home() {
                 😕 Нет товаров для отображения
               </p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
-                {filteredProducts.map((p, i) => (
-                  <div
-                    key={p.ProductID}
-                    className="animate-fade-in"
-                    style={{
-                      animationDelay: `${i * 0.05}s`,
-                      animationFillMode: "backwards",
-                    }}
-                  >
-                    <ProductCard product={p} />
-                  </div>
-                ))}
-              </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+  {filteredProducts.map((p, i) => (
+    <div
+      key={p.ProductID}
+      className="animate-fade-in h-full"
+      style={{
+        animationDelay: `${i * 0.05}s`,
+        animationFillMode: "backwards",
+      }}
+    >
+      <ProductCard product={p} />
+    </div>
+  ))}
+</div>
+
             )}
           </div>
         </main>

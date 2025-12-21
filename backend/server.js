@@ -8,7 +8,12 @@ const path = require('path');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    exposedHeaders: ["Content-Disposition"],
+  })
+);
+
 app.use(express.json());
 
 // 🖼 Раздача загруженных изображений
@@ -28,6 +33,9 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/categories', categoryRoutes); // ✅ подключено
 app.use('/api/checkout', require('./routes/checkout'));
 app.use('/api/admin/users', require('./routes/adminUsers'));
+app.use("/api/admin/reports", require("./routes/adminReports"));
+app.use("/api/notifications", require("./routes/notificationsNoDb"));
+
 
 // Простой тестовый маршрут
 app.get('/', (req, res) => {

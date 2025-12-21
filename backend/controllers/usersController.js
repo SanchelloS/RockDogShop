@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { poolPromise } = require('../config/db');
+const { poolPromise, sql } = require('../config/db');
 
 // 📋 Регистрация
 const registerUser = async (req, res) => {
@@ -196,10 +196,82 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// ✅ GET /api/users/me
+const getMe = async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .input("id", req.user.id)
+      .query(`
+        SELECT UserID, Login, Email, Phone, Role
+        FROM Users
+        WHERE UserID = @id
+      `);
+
+    if (!result.recordset.length) {
+      return res.status(404).json({ message: "Пользователь не найден" });
+    }
+
+    res.json(result.recordset[0]);
+  } catch (err) {
+    console.error("getMe error:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
+  }
+};
+
+// ✅ PUT /api/users/me
+const updateMe = async (req, res) => {
+  try {
+    const { login, email, phone, password } = req.body;
+
+    const pool = await poolPromise;
+
+    const fields = [];
+    const request = pool.request();
+    request.input("id", req.user.id);
+
+    if (login !== undefined) {
+      fields.push("Login = @login");
+      request.input("login", login);
+    }
+    if (email !== undefined) {
+      fields.push("Email = @email");
+      request.input("email", email);
+    }
+    if (phone !== undefined) {
+      fields.push("Phone = @phone");
+      request.input("phone", phone);
+    }
+    if (password) {
+      const hashed = await bcrypt.hash(password, 10);
+      fields.push("Password = @password");
+      request.input("password", hashed);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ message: "Нет данных для обновления" });
+    }
+
+    await request.query(`
+      UPDATE Users
+      SET ${fields.join(", ")}
+      WHERE UserID = @id
+    `);
+
+    res.json({ message: "Профиль обновлён" });
+  } catch (err) {
+    console.error("updateMe error:", err);
+    res.status(500).json({ message: "Ошибка при обновлении профиля" });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getAllUsers,
   updateUser,
-  deleteUser
+  deleteUser,
+  getMe,
+  updateMe,
 };

@@ -1,10 +1,21 @@
-const { poolPromise } = require("../config/db");
+const { poolPromise, sql } = require('../config/db');
 
-// === Получить все категории ===
+// === Получить все категории + счётчик товаров ===
 exports.getCategories = async (req, res) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request().query("SELECT * FROM Categories ORDER BY CategoryID DESC");
+
+    const result = await pool.request().query(`
+      SELECT
+        c.CategoryID,
+        c.Name,
+        COUNT(p.ProductID) AS ProductsCount
+      FROM Categories c
+      LEFT JOIN Products p ON p.CategoryID = c.CategoryID
+      GROUP BY c.CategoryID, c.Name
+      ORDER BY c.CategoryID DESC
+    `);
+
     res.json(result.recordset);
   } catch (err) {
     console.error("Ошибка при получении категорий:", err);

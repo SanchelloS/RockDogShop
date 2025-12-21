@@ -1,11 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { ChevronDown, ChevronUp, Package } from "lucide-react";
+import { ChevronDown, ChevronUp, Package, Archive } from "lucide-react";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function UserOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [openOrderId, setOpenOrderId] = useState(null);
+
+  const [tab, setTab] = useState("active"); // active | archive
+  const [openActiveId, setOpenActiveId] = useState(null);
+  const [openArchiveId, setOpenArchiveId] = useState(null);
+
   const token = localStorage.getItem("token");
 
   const statusMap = {
@@ -24,13 +30,17 @@ export default function UserOrders() {
     Cancelled: "text-red-600 bg-red-50 border-red-100",
   };
 
+  // что считаем архивом
+  const ARCHIVE_STATUSES = useMemo(() => new Set(["Delivered", "Cancelled"]), []);
+
   useEffect(() => {
     fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchOrders() {
     try {
-      const res = await axios.get("http://localhost:5000/api/orders", {
+      const res = await axios.get(`${API}/api/orders`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -61,6 +71,20 @@ export default function UserOrders() {
     }
   }
 
+  const activeOrders = useMemo(
+    () => orders.filter((o) => !ARCHIVE_STATUSES.has(o.Status)),
+    [orders, ARCHIVE_STATUSES]
+  );
+
+  const archiveOrders = useMemo(
+    () => orders.filter((o) => ARCHIVE_STATUSES.has(o.Status)),
+    [orders, ARCHIVE_STATUSES]
+  );
+
+  const list = tab === "active" ? activeOrders : archiveOrders;
+  const openId = tab === "active" ? openActiveId : openArchiveId;
+  const setOpenId = tab === "active" ? setOpenActiveId : setOpenArchiveId;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen text-gray-600 text-lg animate-pulse">
@@ -72,19 +96,57 @@ export default function UserOrders() {
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 via-blue-50/30 to-white py-12 px-4">
       <div className="max-w-5xl mx-auto bg-white/90 backdrop-blur-md shadow-lg rounded-3xl p-8 border border-gray-100 animate-fade-in">
-        <h2 className="text-3xl font-bold mb-10 text-center text-gray-800 flex items-center justify-center gap-3">
+        <h2 className="text-3xl font-bold mb-6 text-center text-gray-800 flex items-center justify-center gap-3">
           <Package className="text-blue-600" size={32} />
           Мои заказы
         </h2>
 
-        {orders.length === 0 ? (
+        {/* вкладки */}
+        <div className="flex justify-center mb-10">
+          <div className="inline-flex bg-gray-100 rounded-2xl p-1 border border-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                setTab("active");
+                setOpenArchiveId(null);
+              }}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                tab === "active"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-600 hover:text-gray-800"
+              }`}
+            >
+              Активные ({activeOrders.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setTab("archive");
+                setOpenActiveId(null);
+              }}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
+                tab === "archive"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-600 hover:text-gray-800"
+              }`}
+            >
+              <Archive size={16} />
+              Архив ({archiveOrders.length})
+            </button>
+          </div>
+        </div>
+
+        {list.length === 0 ? (
           <div className="text-center text-gray-500 text-lg animate-fade-in">
-            😔 У вас пока нет заказов
+            {tab === "active"
+              ? "😔 У вас нет активных заказов"
+              : "📦 Архив пока пуст"}
           </div>
         ) : (
           <div className="space-y-6">
-            {orders.map((order, index) => {
-              const isOpen = openOrderId === order.OrderID;
+            {list.map((order, index) => {
+              const isOpen = openId === order.OrderID;
 
               return (
                 <div
@@ -92,13 +154,11 @@ export default function UserOrders() {
                   className={`rounded-2xl border border-gray-100 shadow-sm bg-white/70 hover:shadow-md transition-all duration-500 transform hover:-translate-y-1 ${
                     isOpen ? "ring-2 ring-blue-100" : ""
                   }`}
-                  style={{ animationDelay: `${index * 100}ms` }}
+                  style={{ animationDelay: `${index * 80}ms` }}
                 >
                   <div
                     className="flex justify-between items-center p-5 cursor-pointer select-none"
-                    onClick={() =>
-                      setOpenOrderId(isOpen ? null : order.OrderID)
-                    }
+                    onClick={() => setOpenId(isOpen ? null : order.OrderID)}
                   >
                     <div>
                       <p className="font-bold text-gray-800 text-lg">
@@ -111,10 +171,20 @@ export default function UserOrders() {
                         })}
                       </p>
                       <p
-                        className={`inline-block mt-2 px-3 py-1 text-sm font-semibold rounded-xl border ${statusColor[order.Status]}`}
+                        className={`inline-block mt-2 px-3 py-1 text-sm font-semibold rounded-xl border ${
+                          statusColor[order.Status] || "text-gray-600 bg-gray-50 border-gray-100"
+                        }`}
                       >
                         {statusMap[order.Status] || order.Status}
                       </p>
+
+                      {/* пометка архива */}
+                      {ARCHIVE_STATUSES.has(order.Status) && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600 border border-gray-200">
+                          <Archive size={14} />
+                          Архив
+                        </span>
+                      )}
                     </div>
 
                     <div className="text-right flex flex-col items-end">
@@ -135,16 +205,17 @@ export default function UserOrders() {
                     </div>
                   </div>
 
-                  {/* === ПЛАВНОЕ РАСКРЫТИЕ === */}
+                  {/* раскрытие */}
                   <div
                     className={`overflow-hidden transition-all duration-500 ease-in-out ${
                       isOpen ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
                     }`}
                   >
-                    <div className="px-6 pb-5 animate-fade-in-down">
+                    <div className="px-6 pb-5 animate-slide-down">
                       <h4 className="font-semibold mb-3 text-gray-700">
                         Товары в заказе:
                       </h4>
+
                       <div className="space-y-3">
                         {order.items.map((it, idx) => (
                           <div
@@ -155,7 +226,7 @@ export default function UserOrders() {
                               <img
                                 src={
                                   it.MainImageURL
-                                    ? `http://localhost:5000${it.MainImageURL}`
+                                    ? `${API}${it.MainImageURL}`
                                     : "/no-image.png"
                                 }
                                 alt={it.Name}
@@ -176,6 +247,12 @@ export default function UserOrders() {
                           </div>
                         ))}
                       </div>
+
+                      {tab === "archive" && (
+                        <p className="text-xs text-gray-500 mt-4">
+                          Этот заказ находится в архиве (доставлен или отменён).
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-const { poolPromise } = require('../config/db');
+const { poolPromise, sql } = require('../config/db');
 
 // ======== PRODUCTS ========
 
@@ -6,20 +6,27 @@ const { poolPromise } = require('../config/db');
 const getAllProducts = async (req, res) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request().query(`
-      SELECT 
-        p.ProductID,
-        p.Name,
-        p.Description,
-        p.Price,
-        p.QuantityInStock,
-        p.CategoryID,
-        p.MainImageURL,
-        c.Name AS CategoryName
-      FROM Products p
-      JOIN Categories c ON p.CategoryID = c.CategoryID
-      ORDER BY p.ProductID DESC
-    `);
+    // const result = await pool.request().query(`
+    //   SELECT 
+    //     p.ProductID,
+    //     p.Name,
+    //     p.Description,
+    //     p.Price,
+    //     p.QuantityInStock,
+    //     p.CategoryID,
+    //     p.MainImageURL,
+    //     c.Name AS CategoryName
+    //   FROM Products p
+    //   JOIN Categories c ON p.CategoryID = c.CategoryID
+    //   ORDER BY p.ProductID DESC
+    // `);
+const result = await pool.request().query(`
+  SELECT
+    ProductID, Name, Description, Price, QuantityInStock,
+    CategoryID, MainImageURL, CategoryName
+  FROM dbo.vw_ProductsWithCategory
+  ORDER BY ProductID DESC
+`);
 
     res.json(result.recordset);
   } catch (err) {
@@ -134,23 +141,55 @@ const updateProduct = async (req, res) => {
 
 // Удалить товар (Admin)
 const deleteProduct = async (req, res) => {
+  const pool = await poolPromise;
+  const transaction = pool.transaction();
+
   try {
     const { id } = req.params;
-    const pool = await poolPromise;
 
-    const result = await pool.request()
-      .input('id', id)
-      .query(`DELETE FROM Products WHERE ProductID=@id`);
+    await transaction.begin();
+    const request = transaction.request();
+    request.input("id", id);
 
-    if (result.rowsAffected[0] === 0)
-      return res.status(404).json({ message: 'Product not found' });
+    // 1) Удаляем доп. изображения (иначе FK не даст удалить товар)
+    await request.query(`
+      DELETE FROM ProductImages
+      WHERE ProductID = @id
+    `);
 
-    res.json({ message: 'Product deleted successfully' });
+    // 2) Удаляем из корзин (на всякий)
+    await request.query(`
+      DELETE FROM Cart
+      WHERE ProductID = @id
+    `);
+
+    // 3) Можно обнулить MainImageURL (не обязательно, но логично)
+    await request.query(`
+      UPDATE Products
+      SET MainImageURL = NULL
+      WHERE ProductID = @id
+    `);
+
+    // 4) Удаляем сам товар
+    const result = await request.query(`
+      DELETE FROM Products
+      WHERE ProductID = @id
+    `);
+
+    if (!result.rowsAffected[0]) {
+      await transaction.rollback();
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    await transaction.commit();
+    res.json({ message: "Product deleted successfully" });
   } catch (err) {
-    console.error('deleteProduct error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error("deleteProduct error:", err);
+    try { await transaction.rollback(); } catch {}
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 // ======== CATEGORIES ========
 
@@ -278,6 +317,48 @@ const uploadProductImages = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
+const fs = require("fs");
+const path = require("path");
+
+const deleteProductImage = async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const { imageUrl } = req.body; // "/uploads/xxx.jpg"
+
+    if (!imageUrl) return res.status(400).json({ message: "imageUrl is required" });
+
+    const pool = await poolPromise;
+
+    const result = await pool
+      .request()
+      .input("productId", productId)
+      .input("imageUrl", imageUrl)
+      .query(`
+        DELETE FROM ProductImages
+        WHERE ProductID = @productId AND ImageURL = @imageUrl
+      `);
+
+    if (!result.rowsAffected[0]) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+
+    // ✅ аккуратно удаляем файл (важно убрать ведущий /)
+    const rel = imageUrl.replace(/^\/+/, ""); // "uploads/xxx.jpg"
+    const filePath = path.join(__dirname, "..", rel);
+
+    fs.unlink(filePath, (err) => {
+      if (err && err.code !== "ENOENT") {
+        console.warn("⚠️ Could not delete file:", filePath, err.message);
+      }
+    });
+
+    res.json({ message: "Image deleted successfully" });
+  } catch (err) {
+    console.error("deleteProductImage error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
 
 module.exports = {
   getAllProducts,
@@ -290,5 +371,6 @@ module.exports = {
   updateCategory,
   deleteCategory,
   uploadMainImage,
-  uploadProductImages
+  uploadProductImages,
+  deleteProductImage,
 };

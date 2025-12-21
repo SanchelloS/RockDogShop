@@ -3,6 +3,7 @@ import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { CartContext } from "../context/CartContext";
 import { Menu, X } from "lucide-react"; // 🧭 иконки
+import NotificationsBellNoDb from "./NotificationsBellNoDb";
 
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
@@ -100,6 +101,13 @@ export default function Navbar() {
           {/* 👋 Авторизованный пользователь */}
           {user && (
             <>
+            <NotificationsBellNoDb
+      user={user}
+      onNavigate={(path) => {
+        navigate(path);
+        setMenuOpen(false);
+      }}
+    />
               <span
                 onClick={() => {
                   navigate("/profile");
