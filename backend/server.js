@@ -19,28 +19,32 @@ app.use(express.json());
 // 🖼 Раздача загруженных изображений
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 🔹 Подключение маршрутов
+// 🔹 Подключение маршрутов бэкенда
 const productRoutes = require('./routes/products');
 const userRoutes = require('./routes/users');
 const orderRoutes = require('./routes/orders');
 const cartRoutes = require('./routes/cart');
-const categoryRoutes = require('./routes/categories'); // ✅ добавлено
+const categoryRoutes = require('./routes/categories');
 
 app.use('/api/products', productRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/cart', cartRoutes);
-app.use('/api/categories', categoryRoutes); // ✅ подключено
+app.use('/api/categories', categoryRoutes);
 app.use('/api/checkout', require('./routes/checkout'));
 app.use('/api/admin/users', require('./routes/adminUsers'));
 app.use("/api/admin/reports", require("./routes/adminReports"));
 app.use("/api/notifications", require("./routes/notificationsNoDb"));
 
 
-// Простой тестовый маршрут
-app.get('/', (req, res) => {
-  res.send('API is working ✅');
+// 🔹 Настройка раздачи фронтенда (нашего скомпилированного React/Vite приложения)
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// Любой запрос, который не совпал с API-маршрутами выше, отправляем на фронтенд
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
+
 
 // Порт из .env или 5000 по умолчанию
 const PORT = process.env.PORT || 5000;

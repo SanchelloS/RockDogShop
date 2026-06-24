@@ -1,17 +1,22 @@
 import { useState, useContext } from "react";
-import axios from "axios";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { CartContext } from "../context/CartContext";
+import { ArrowLeft } from "lucide-react";
+import axiosClient from "../api/axiosClient";
 
 export default function Login() {
   const [form, setForm] = useState({ login: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const { login: authLogin } = useContext(AuthContext);
+  const { login } = useContext(AuthContext);
   const { loadCartFromServer } = useContext(CartContext);
+
+  // Откуда пришли (для редиректа после входа)
+  const from = location.state?.from || "/";
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -23,14 +28,18 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await axios.post("http://localhost:5000/api/users/login", form);
+      const res = await axiosClient.post("/users/login", form);
 
-      localStorage.setItem("token", res.data.token);
-      authLogin(res.data.user);
+      // Сохраняем токен и данные пользователя через контекст
+      login(res.data.user, res.data.token);
 
-      if (loadCartFromServer) await loadCartFromServer();
+      // Загружаем корзину после входа
+      if (loadCartFromServer) {
+        await loadCartFromServer();
+      }
 
-      navigate("/");
+      // Редирект (учитывает basename автоматически)
+      navigate(from);
     } catch (err) {
       console.error("Login error:", err);
       setError(err.response?.data?.message || "Неверные данные");
@@ -39,12 +48,28 @@ export default function Login() {
     }
   };
 
+  // Кнопка возврата на главную
+  const handleGoHome = () => {
+    navigate("/"); // basename добавится автоматически
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-blue-50 via-white to-blue-100 animate-fade-in">
       <form
         onSubmit={handleSubmit}
-        className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md border border-gray-200 animate-fade-in"
+        className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md border border-gray-200 animate-fade-in relative"
       >
+        {/* Кнопка "На главную" */}
+        <button
+          type="button"
+          onClick={handleGoHome}
+          className="absolute top-4 left-4 text-gray-500 hover:text-blue-600 transition flex items-center gap-1 text-sm"
+          title="Вернуться на главную"
+        >
+          <ArrowLeft size={18} />
+          <span className="hidden sm:inline">На главную</span>
+        </button>
+
         <h2 className="text-3xl font-bold mb-2 text-center text-gray-800">
           Вход
         </h2>
@@ -106,6 +131,7 @@ export default function Login() {
           Нет аккаунта?{" "}
           <Link
             to="/register"
+            state={{ from }}
             className="text-blue-600 hover:text-blue-800 font-medium transition"
           >
             Зарегистрироваться

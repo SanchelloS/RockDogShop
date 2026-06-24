@@ -19,4 +19,5 @@ export default defineConfig({
     port: 5173, // можешь поменять, если хочешь
     open: true, // автоматически открывает браузер
   },
+  base: '/diplom01/'
 });

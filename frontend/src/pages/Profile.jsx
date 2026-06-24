@@ -1,63 +1,120 @@
 import { useEffect, useState, useContext } from "react";
-import axiosClient from "../api/axiosClient";
 import { AuthContext } from "../context/AuthContext";
 import { CheckCircle, User, Mail, Phone, Lock, Save } from "lucide-react";
+import axiosClient from "../api/axiosClient";
+import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
-  const { token, logout } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState({ login: "", email: "", phone: "", password: "" });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Загружаем профиль
+  const isAdmin = user?.role === "Admin" || user?.Role === "Admin";
+
+  // Загружаем профиль - используем единый эндпоинт для всех
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    // Единый эндпоинт для всех пользователей
+    const endpoint = "/users/me";
+    
     axiosClient
-      .get("/users/me", {
+      .get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        setProfile(res.data);
+        const userData = res.data;
+        setProfile(userData);
         setForm({
-          login: res.data.Login,
-          email: res.data.Email,
-          phone: res.data.Phone,
+          login: userData.Login || userData.login || "",
+          email: userData.Email || userData.email || "",
+          phone: userData.Phone || userData.phone || "",
           password: "",
         });
       })
-      .catch(() => setMessage("Ошибка при загрузке профиля"))
+      .catch((err) => {
+        console.error("Ошибка загрузки профиля:", err);
+        setMessage("Ошибка при загрузке профиля");
+        if (err.response?.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          navigate("/login");
+        }
+      })
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [navigate]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
     setMessage("");
-    axiosClient
-      .put("/users/me", form, {
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setMessage("❌ Сессия истекла, войдите заново");
+      setTimeout(() => navigate("/login"), 1500);
+      setSaving(false);
+      return;
+    }
+
+    // Единый эндпоинт для всех
+    const endpoint = "/users/me";
+    
+    const payload = {
+      login: form.login,
+      email: form.email,
+      phone: form.phone,
+    };
+    if (form.password) {
+      payload.password = form.password;
+    }
+
+    try {
+      await axiosClient.put(endpoint, payload, {
         headers: { Authorization: `Bearer ${token}` },
-      })
-      .then(() => {
-        setMessage("✅ Профиль успешно обновлён!");
-        setTimeout(() => setMessage(""), 2500);
-      })
-      .catch(() => setMessage("❌ Ошибка при обновлении данных"))
-      .finally(() => setSaving(false));
+      });
+      setMessage("✅ Профиль успешно обновлён!");
+      setTimeout(() => setMessage(""), 2500);
+      
+      // Обновляем данные пользователя в localStorage
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const updatedUser = { ...JSON.parse(storedUser), ...payload };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+      }
+    } catch (err) {
+      console.error("Ошибка обновления:", err);
+      setMessage(err.response?.data?.message || "❌ Ошибка при обновлении данных");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
-    return <p className="text-center mt-10 text-gray-600 animate-pulse">Загрузка профиля...</p>;
+    return (
+      <div className="max-w-3xl mx-auto mt-10">
+        <p className="text-center text-gray-600 animate-pulse">Загрузка профиля...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-3xl mx-auto mt-10 bg-white rounded-2xl shadow-lg p-8 border border-gray-100 animate-fade-in">
+    <div className="max-w-3xl mx-auto mt-10 mb-10 bg-white rounded-2xl shadow-lg p-8 border border-gray-100 animate-fade-in">
       <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <User className="text-blue-600" /> Мой профиль
+        <User className="text-blue-600" /> 
+        {isAdmin ? "Админ-профиль" : "Мой профиль"}
       </h1>
 
       <form onSubmit={handleSave} className="space-y-5">
@@ -71,6 +128,7 @@ export default function Profile() {
               value={form.login}
               onChange={handleChange}
               className="w-full bg-transparent outline-none text-gray-800"
+              required
             />
           </div>
         </div>
@@ -85,6 +143,7 @@ export default function Profile() {
               value={form.email}
               onChange={handleChange}
               className="w-full bg-transparent outline-none text-gray-800"
+              required
             />
           </div>
         </div>
@@ -96,7 +155,7 @@ export default function Profile() {
             <input
               type="text"
               name="phone"
-              value={form.phone}
+              value={form.phone || ""}
               onChange={handleChange}
               className="w-full bg-transparent outline-none text-gray-800"
             />
@@ -116,6 +175,7 @@ export default function Profile() {
               className="w-full bg-transparent outline-none text-gray-800"
             />
           </div>
+          <p className="text-xs text-gray-400 mt-1">Минимум 6 символов</p>
         </div>
 
         {message && (
@@ -130,7 +190,7 @@ export default function Profile() {
           </div>
         )}
 
-        <div className="flex justify-between items-center mt-6">
+        <div className="flex flex-wrap justify-between items-center gap-4 mt-6">
           <button
             type="submit"
             disabled={saving}
@@ -149,7 +209,10 @@ export default function Profile() {
 
           <button
             type="button"
-            onClick={logout}
+            onClick={() => {
+              logout();
+              navigate("/login");
+            }}
             className="text-red-500 hover:text-red-700 font-medium transition"
           >
             🚪 Выйти из аккаунта
